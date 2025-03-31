@@ -5,6 +5,19 @@ A Model Context Protocol (MCP) implementation for interacting with databases via
 - Exploring database schema (tables and columns)
 - Viewing table relationships (primary and foreign keys)
 
+This project was developed using an AI coding assistant (Claude) in Cursor IDE to quickly create a read-only database exploration tool. The implementation is intentionally restricted to SELECT queries for security purposes.
+
+## Prerequisites
+
+1. **JDBC Driver**:
+   - Download the appropriate JDBC driver for your database and place it in the `libs` directory:
+     - Oracle: [ojdbc11.jar](https://www.oracle.com/database/technologies/appdev/jdbc-downloads.html)
+       - Note: Not included due to Oracle licensing restrictions
+     - PostgreSQL: [postgresql-42.6.0.jar](https://jdbc.postgresql.org/download/)
+     - MySQL: [mysql-connector-j-8.2.0.jar](https://dev.mysql.com/downloads/connector/j/)
+   - Create a `libs` directory in the project root if it doesn't exist
+   - Place the downloaded driver JAR in the `libs` directory
+
 ## Features
 
 - **Safe Query Execution**: Only SELECT queries are allowed for security
@@ -19,36 +32,26 @@ A Model Context Protocol (MCP) implementation for interacting with databases via
 pip install -r requirements.txt
 ```
 
-2. Download the appropriate JDBC driver JAR for your database. Common drivers:
-- PostgreSQL: [postgresql-42.6.0.jar](https://jdbc.postgresql.org/download/)
-  - Driver class: `org.postgresql.Driver`
-  - URL format: `jdbc:postgresql://localhost:5432/mydb`
-- MySQL: [mysql-connector-j-8.2.0.jar](https://dev.mysql.com/downloads/connector/j/)
-  - Driver class: `com.mysql.cj.jdbc.Driver`
-  - URL format: `jdbc:mysql://localhost:3306/mydb`
-- Oracle: [ojdbc11.jar](https://www.oracle.com/database/technologies/appdev/jdbc-downloads.html)
-  - Driver class: `oracle.jdbc.OracleDriver`
-  - URL format: `jdbc:oracle:thin:@localhost:1521:orcl`
-
-3. Create a `.env` file with your database configuration:
+2. Create a `.env` file with your database configuration (use `.env.example` as a template):
 ```env
+# Oracle example
+ORACLE_USER=your_username
+ORACLE_PASSWORD=your_password
+ORACLE_CONNECTION_STRING=jdbc:oracle:thin:@//hostname:port/service_name
+
 # PostgreSQL example
-JDBC_URL=jdbc:postgresql://localhost:5432/mydb
-JDBC_DRIVER=org.postgresql.Driver
-JDBC_DRIVER_PATH=/path/to/postgresql-42.6.0.jar
+# JDBC_URL=jdbc:postgresql://localhost:5432/mydb
+# JDBC_DRIVER=org.postgresql.Driver
+# JDBC_DRIVER_PATH=/path/to/postgresql-42.6.0.jar
+# DB_USERNAME=myuser
+# DB_PASSWORD=mypassword
 
 # MySQL example
 # JDBC_URL=jdbc:mysql://localhost:3306/mydb
 # JDBC_DRIVER=com.mysql.cj.jdbc.Driver
 # JDBC_DRIVER_PATH=/path/to/mysql-connector-j-8.2.0.jar
-
-# Oracle example
-# JDBC_URL=jdbc:oracle:thin:@localhost:1521:orcl
-# JDBC_DRIVER=oracle.jdbc.OracleDriver
-# JDBC_DRIVER_PATH=/path/to/ojdbc11.jar
-
-DB_USERNAME=myuser
-DB_PASSWORD=mypassword
+# DB_USERNAME=myuser
+# DB_PASSWORD=mypassword
 ```
 
 ## Using with Cursor IDE
@@ -66,18 +69,23 @@ chmod +x run-jdbc-mcp.sh
     "jdbc-explorer": {
       "command": "/absolute/path/to/our-jdbc-simple/run-jdbc-mcp.sh",
       "env": {
-        "JDBC_URL": "jdbc:postgresql://localhost:5432/mydb",
-        "JDBC_DRIVER": "org.postgresql.Driver",
-        "JDBC_DRIVER_PATH": "/path/to/postgresql-42.6.0.jar",
-        "DB_USERNAME": "myuser",
-        "DB_PASSWORD": "mypassword"
+        "ORACLE_USER": "your_username",
+        "ORACLE_PASSWORD": "your_password",
+        "ORACLE_CONNECTION_STRING": "jdbc:oracle:thin:@//hostname:port/service_name"
+        
+        // For PostgreSQL/MySQL, use these instead:
+        // "JDBC_URL": "jdbc:postgresql://localhost:5432/mydb",
+        // "JDBC_DRIVER": "org.postgresql.Driver",
+        // "JDBC_DRIVER_PATH": "/path/to/postgresql-42.6.0.jar",
+        // "DB_USERNAME": "myuser",
+        // "DB_PASSWORD": "mypassword"
       }
     }
   }
 }
 ```
 
-Replace the paths and environment variables with your actual database configuration.
+Replace the environment variables with your actual database configuration.
 
 3. Restart Cursor IDE to load the new MCP configuration.
 
