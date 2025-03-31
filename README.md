@@ -35,9 +35,11 @@ pip install -r requirements.txt
 2. Create a `.env` file with your database configuration (use `.env.example` as a template):
 ```env
 # Oracle example
-ORACLE_USER=your_username
-ORACLE_PASSWORD=your_password
-ORACLE_CONNECTION_STRING=jdbc:oracle:thin:@//hostname:port/service_name
+JDBC_URL=jdbc:oracle:thin:@//hostname:port/service_name
+JDBC_DRIVER=oracle.jdbc.OracleDriver
+JDBC_DRIVER_PATH=/path/to/ojdbc11.jar
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
 
 # PostgreSQL example
 # JDBC_URL=jdbc:postgresql://localhost:5432/mydb
@@ -69,11 +71,13 @@ chmod +x run-jdbc-mcp.sh
     "jdbc-explorer": {
       "command": "/absolute/path/to/our-jdbc-simple/run-jdbc-mcp.sh",
       "env": {
-        "ORACLE_USER": "your_username",
-        "ORACLE_PASSWORD": "your_password",
-        "ORACLE_CONNECTION_STRING": "jdbc:oracle:thin:@//hostname:port/service_name"
+        "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
+        "JDBC_DRIVER": "oracle.jdbc.OracleDriver",
+        "JDBC_DRIVER_PATH": "/path/to/ojdbc11.jar",
+        "DB_USERNAME": "your_username",
+        "DB_PASSWORD": "your_password"
         
-        // For PostgreSQL/MySQL, use these instead:
+        // For PostgreSQL/MySQL, adjust the connection parameters accordingly:
         // "JDBC_URL": "jdbc:postgresql://localhost:5432/mydb",
         // "JDBC_DRIVER": "org.postgresql.Driver",
         // "JDBC_DRIVER_PATH": "/path/to/postgresql-42.6.0.jar",
@@ -103,22 +107,34 @@ Note: Cursor will automatically discover and make available the tools provided b
 
 ## Using with Claude Code
 
-1. Start the MCP server in SSE mode:
-```bash
-./run-jdbc-mcp.sh --transport sse --host 127.0.0.1 --port 8000
-```
+1. Configure Claude Code to start the MCP server automatically using a config file:
+   - Create a file at `~/.claude-code/config.json` with:
+   ```json
+   {
+     "mcp_servers": [
+       {
+         "name": "jdbc-mcp",
+         "command": "/absolute/path/to/jdbc-mcp/run-jdbc-mcp.sh",
+         "env": {
+           "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
+           "JDBC_DRIVER": "oracle.jdbc.OracleDriver",
+           "JDBC_DRIVER_PATH": "/path/to/ojdbc11.jar",
+           "DB_USERNAME": "your_username",
+           "DB_PASSWORD": "your_password"
+         }
+       }
+     ]
+   }
+   ```
 
-2. Configure Claude Code to use the MCP server:
-```json
-{
-    "mcp_server": {
-        "type": "sse",
-        "url": "http://127.0.0.1:8000"
-    }
-}
-```
+2. Replace the environment variables with your actual database configuration.
 
-3. The JDBC tools will be available through Claude Code's interface.
+3. Run Claude Code without additional flags:
+   ```bash
+   claude-code
+   ```
+
+4. The JDBC tools will be automatically available in Claude Code, with tool names prefixed by `mcp__jdbc-mcp__` (e.g., `mcp__jdbc-mcp__execute_query`).
 
 ## Available Tools
 
