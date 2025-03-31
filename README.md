@@ -12,9 +12,10 @@ This project was developed using an AI coding assistant (Claude) in Cursor IDE t
 1. **JDBC Driver**:
    - Download the appropriate JDBC driver for your database and place it in the `libs` directory:
      - Oracle: [ojdbc11.jar](https://www.oracle.com/database/technologies/appdev/jdbc-downloads.html)
-       - Note: Not included due to Oracle licensing restrictions
+       - This is the primary database driver we've tested with
      - PostgreSQL: [postgresql-42.6.0.jar](https://jdbc.postgresql.org/download/)
      - MySQL: [mysql-connector-j-8.2.0.jar](https://dev.mysql.com/downloads/connector/j/)
+     - H2 (lightweight embedded database): [h2-2.2.224.jar](https://mvnrepository.com/artifact/com.h2database/h2)
    - Create a `libs` directory in the project root if it doesn't exist
    - Place the downloaded driver JAR in the `libs` directory
 
@@ -34,7 +35,7 @@ pip install -r requirements.txt
 
 2. Create a `.env` file with your database configuration (use `.env.example` as a template):
 ```env
-# Oracle example
+# Oracle example (primary tested database)
 JDBC_URL=jdbc:oracle:thin:@//hostname:port/service_name
 JDBC_DRIVER=oracle.jdbc.OracleDriver
 JDBC_DRIVER_PATH=/path/to/ojdbc11.jar
@@ -54,6 +55,13 @@ DB_PASSWORD=your_password
 # JDBC_DRIVER_PATH=/path/to/mysql-connector-j-8.2.0.jar
 # DB_USERNAME=myuser
 # DB_PASSWORD=mypassword
+
+# H2 example
+# JDBC_URL=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+# JDBC_DRIVER=org.h2.Driver
+# JDBC_DRIVER_PATH=/path/to/h2-2.2.224.jar
+# DB_USERNAME=sa
+# DB_PASSWORD=
 ```
 
 ## Using with Cursor IDE
@@ -77,12 +85,19 @@ chmod +x run-jdbc-mcp.sh
         "DB_USERNAME": "your_username",
         "DB_PASSWORD": "your_password"
         
-        // For PostgreSQL/MySQL, adjust the connection parameters accordingly:
+        // For PostgreSQL/MySQL/H2, adjust the connection parameters accordingly:
         // "JDBC_URL": "jdbc:postgresql://localhost:5432/mydb",
         // "JDBC_DRIVER": "org.postgresql.Driver",
         // "JDBC_DRIVER_PATH": "/path/to/postgresql-42.6.0.jar",
         // "DB_USERNAME": "myuser",
         // "DB_PASSWORD": "mypassword"
+        
+        // H2 in-memory database:
+        // "JDBC_URL": "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
+        // "JDBC_DRIVER": "org.h2.Driver",
+        // "JDBC_DRIVER_PATH": "/path/to/h2-2.2.224.jar",
+        // "DB_USERNAME": "sa",
+        // "DB_PASSWORD": ""
       }
     }
   }
@@ -121,6 +136,14 @@ Note: Cursor will automatically discover and make available the tools provided b
            "JDBC_DRIVER_PATH": "/path/to/ojdbc11.jar",
            "DB_USERNAME": "your_username",
            "DB_PASSWORD": "your_password"
+           
+           // For other database types including H2, update accordingly
+           // H2 example:
+           // "JDBC_URL": "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
+           // "JDBC_DRIVER": "org.h2.Driver", 
+           // "JDBC_DRIVER_PATH": "/path/to/h2-2.2.224.jar",
+           // "DB_USERNAME": "sa",
+           // "DB_PASSWORD": ""
          }
        }
      ]
