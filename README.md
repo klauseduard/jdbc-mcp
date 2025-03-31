@@ -145,7 +145,8 @@ Note: Cursor will automatically discover and make available the tools provided b
 
    **Project-Scoped Configuration** (only for this specific project):
    - Follow the instructions in the official Claude Code documentation for setting up a project-scoped MCP configuration
-   - Example configuration will look similar to this (but check the official docs for the exact format):
+   - Create a `.mcp.json` file in the project root directory (see `.mcp.json.example` for a template)
+   - Example configuration:
    ```json
    [
      {
@@ -154,13 +155,15 @@ Note: Cursor will automatically discover and make available the tools provided b
        "env": {
          "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
          "JDBC_DRIVER": "oracle.jdbc.OracleDriver",
-         "JDBC_DRIVER_PATH": "/path/to/ojdbc11.jar",
+         "JDBC_DRIVER_PATH": "${REPO_ROOT}/libs/ojdbc11.jar",
          "DB_USERNAME": "your_username",
          "DB_PASSWORD": "your_password"
        }
      }
    ]
    ```
+   
+   > **Note:** You'll need to download the appropriate JDBC driver (such as `ojdbc11.jar` for Oracle) and place it in the `libs` directory before running.
 
 2. Replace the environment variables with your actual database configuration. Note that these settings will override any values from the `.env` file.
 
