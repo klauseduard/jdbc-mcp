@@ -1,5 +1,8 @@
 # JDBC-MCP Project Guidelines
 
+## Authoritative Documentation
+- Claude Code MCP Configuration: https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/tutorials
+
 ## Build/Run/Test Commands
 - Install dependencies: `pip install -r requirements.txt`
 - Run MCP server in stdio mode: `./run-jdbc-mcp.sh`

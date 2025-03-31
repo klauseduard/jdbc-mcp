@@ -135,32 +135,31 @@ Note: Cursor will automatically discover and make available the tools provided b
 
 ## Using with Claude Code
 
-1. Configure Claude Code to start the MCP server automatically using a config file:
-   - Create a file at `~/.claude-code/config.json` with:
+1. Configure Claude Code to start the MCP server automatically.
+
+   For detailed, authoritative instructions, please refer to the [official Claude Code documentation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/tutorials#set-up-model-context-protocol-mcp).
+
+   **User-Scoped Configuration** (affects all your Claude Code sessions):
+   - Follow the instructions in the official Claude Code documentation for setting up a user-scoped MCP configuration
+   - Use your Oracle JDBC connection details in the configuration
+
+   **Project-Scoped Configuration** (only for this specific project):
+   - Follow the instructions in the official Claude Code documentation for setting up a project-scoped MCP configuration
+   - Example configuration will look similar to this (but check the official docs for the exact format):
    ```json
-   {
-     "mcp_servers": [
-       {
-         "name": "jdbc-mcp",
-         "command": "/absolute/path/to/jdbc-mcp/run-jdbc-mcp.sh",
-         "env": {
-           "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
-           "JDBC_DRIVER": "oracle.jdbc.OracleDriver",
-           "JDBC_DRIVER_PATH": "/path/to/ojdbc11.jar",
-           "DB_USERNAME": "your_username",
-           "DB_PASSWORD": "your_password"
-           
-           // For other database types including H2, update accordingly
-           // H2 example:
-           // "JDBC_URL": "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1",
-           // "JDBC_DRIVER": "org.h2.Driver", 
-           // "JDBC_DRIVER_PATH": "/path/to/h2-2.2.224.jar",
-           // "DB_USERNAME": "sa",
-           // "DB_PASSWORD": ""
-         }
+   [
+     {
+       "name": "jdbc-mcp",
+       "command": "./run-jdbc-mcp.sh",
+       "env": {
+         "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
+         "JDBC_DRIVER": "oracle.jdbc.OracleDriver",
+         "JDBC_DRIVER_PATH": "/path/to/ojdbc11.jar",
+         "DB_USERNAME": "your_username",
+         "DB_PASSWORD": "your_password"
        }
-     ]
-   }
+     }
+   ]
    ```
 
 2. Replace the environment variables with your actual database configuration. Note that these settings will override any values from the `.env` file.
