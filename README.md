@@ -151,17 +151,18 @@ Note: Cursor will automatically discover and make available the tools provided b
    [
      {
        "name": "jdbc-mcp",
-       "command": "./run-jdbc-mcp.sh",
+       "command": "/absolute/path/to/jdbc-mcp/run-jdbc-mcp.sh",
        "env": {
          "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
          "JDBC_DRIVER": "oracle.jdbc.OracleDriver",
-         "JDBC_DRIVER_PATH": "${REPO_ROOT}/libs/ojdbc11.jar",
+         "JDBC_DRIVER_PATH": "/absolute/path/to/jdbc-mcp/libs/ojdbc11.jar",
          "DB_USERNAME": "your_username",
          "DB_PASSWORD": "your_password"
        }
      }
    ]
    ```
+   > Important: You must use absolute paths (not relative paths) for both the command and JDBC_DRIVER_PATH.
    
    > **Note:** You'll need to download the appropriate JDBC driver (such as `ojdbc11.jar` for Oracle) and place it in the `libs` directory before running.
 

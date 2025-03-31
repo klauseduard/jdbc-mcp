@@ -1,11 +1,11 @@
 [
   {
     "name": "jdbc-mcp",
-    "command": "./run-jdbc-mcp.sh",
+    "command": "/absolute/path/to/jdbc-mcp/run-jdbc-mcp.sh",
     "env": {
       "JDBC_URL": "jdbc:oracle:thin:@//hostname:port/service_name",
       "JDBC_DRIVER": "oracle.jdbc.OracleDriver", 
-      "JDBC_DRIVER_PATH": "${REPO_ROOT}/libs/ojdbc11.jar",
+      "JDBC_DRIVER_PATH": "/absolute/path/to/jdbc-mcp/libs/ojdbc11.jar",
       "DB_USERNAME": "your_username",
       "DB_PASSWORD": "your_password"
     }
