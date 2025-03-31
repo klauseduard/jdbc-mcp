@@ -7,6 +7,17 @@ A Model Context Protocol (MCP) implementation for interacting with databases via
 
 This project was developed using an AI coding assistant (Claude) in Cursor IDE to quickly create a read-only database exploration tool. The implementation is intentionally restricted to SELECT queries for security purposes.
 
+## Table of Contents
+- [Prerequisites](#prerequisites)
+- [Features](#features)
+- [Setup](#setup)
+- [Using with Cursor IDE](#using-with-cursor-ide)
+- [Using with Claude Code](#using-with-claude-code)
+- [Available Tools](#available-tools)
+- [Example Responses](#example-responses)
+- [Security Considerations](#security-considerations)
+- [Troubleshooting](#troubleshooting)
+
 ## Prerequisites
 
 1. **JDBC Driver**:
