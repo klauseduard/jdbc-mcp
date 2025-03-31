@@ -64,6 +64,8 @@ DB_PASSWORD=your_password
 # DB_PASSWORD=
 ```
 
+> **Note on Configuration Precedence**: When running the MCP server directly, it will use the values from this `.env` file. However, when running through Cursor IDE or Claude Code, the environment variables specified in their respective JSON configuration files (shown in sections below) will take precedence over the values in this `.env` file.
+
 ## Using with Cursor IDE
 
 1. Make sure the run script is executable:
@@ -104,7 +106,7 @@ chmod +x run-jdbc-mcp.sh
 }
 ```
 
-Replace the environment variables with your actual database configuration.
+Replace the environment variables with your actual database configuration. Remember that these settings will take precedence over any values in the `.env` file.
 
 3. Restart Cursor IDE to load the new MCP configuration.
 
@@ -150,7 +152,7 @@ Note: Cursor will automatically discover and make available the tools provided b
    }
    ```
 
-2. Replace the environment variables with your actual database configuration.
+2. Replace the environment variables with your actual database configuration. Note that these settings will override any values from the `.env` file.
 
 3. Run Claude Code without additional flags:
    ```bash
