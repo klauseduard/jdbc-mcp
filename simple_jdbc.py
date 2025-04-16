@@ -13,6 +13,7 @@ import jaydebeapi
 from mcp.server import FastMCP
 from pydantic import BaseModel, Field, field_validator
 from dotenv import load_dotenv
+import time
 
 # Load environment variables
 load_dotenv()
@@ -86,13 +87,18 @@ class JdbcError(Exception):
     pass
 
 class JdbcClient:
-    """Client for interacting with a database via JDBC."""
+    """Client for interacting with a database via JDBC with improved connection handling."""
+    
+    MAX_RETRIES = 3
+    RETRY_DELAY = 1  # seconds
     
     def __init__(self, config: JdbcConfig):
         self.config = config
         self._connection = None
         self._verify_config()
-
+        self._last_used = 0
+        self._connection_timeout = 300  # 5 minutes
+        
     def _verify_config(self):
         """Verify that the configuration is valid."""
         if not self.config.jdbc_url:
@@ -104,19 +110,61 @@ class JdbcClient:
         if not os.path.exists(self.config.jdbc_driver_path):
             raise JdbcError(f"JDBC driver JAR not found at {self.config.jdbc_driver_path}")
 
-    def connect(self) -> bool:
-        """Establish a database connection."""
+    def _is_connection_valid(self) -> bool:
+        """Check if the current connection is valid and not timed out."""
+        if not self._connection:
+            return False
+        
         try:
-            self._connection = jaydebeapi.connect(
-                self.config.jdbc_driver,
-                self.config.jdbc_url,
-                [self.config.username, self.config.password],
-                self.config.jdbc_driver_path,
-            )
-            return True
+            # Check if connection is too old
+            if time.time() - self._last_used > self._connection_timeout:
+                logger.info("Connection timed out, will reconnect")
+                return False
+            
+            # Test connection with a lightweight query
+            with self._connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                return True
         except Exception as e:
-            logger.error(f"Failed to connect to database: {str(e)}")
-            raise JdbcError(f"Connection failed: {str(e)}")
+            logger.warning(f"Connection test failed: {str(e)}")
+            return False
+
+    def connect(self) -> bool:
+        """Establish a database connection with retry logic."""
+        retries = 0
+        last_error = None
+        
+        while retries < self.MAX_RETRIES:
+            try:
+                if self._connection:
+                    try:
+                        self._connection.close()
+                    except Exception:
+                        pass
+                
+                self._connection = jaydebeapi.connect(
+                    self.config.jdbc_driver,
+                    self.config.jdbc_url,
+                    [self.config.username, self.config.password],
+                    self.config.jdbc_driver_path,
+                )
+                self._last_used = time.time()
+                logger.info("Successfully established database connection")
+                return True
+            except Exception as e:
+                last_error = e
+                retries += 1
+                if retries < self.MAX_RETRIES:
+                    logger.warning(f"Connection attempt {retries} failed: {str(e)}. Retrying in {self.RETRY_DELAY} seconds...")
+                    time.sleep(self.RETRY_DELAY)
+        
+        logger.error(f"Failed to connect after {self.MAX_RETRIES} attempts. Last error: {str(last_error)}")
+        raise JdbcError(f"Connection failed after {self.MAX_RETRIES} attempts: {str(last_error)}")
+
+    def ensure_connection(self):
+        """Ensure we have a valid connection, reconnecting if necessary."""
+        if not self._is_connection_valid():
+            self.connect()
 
     def close(self):
         """Close the database connection."""
@@ -127,111 +175,169 @@ class JdbcClient:
                 logger.error(f"Error closing connection: {str(e)}")
             finally:
                 self._connection = None
+                self._last_used = 0
 
     def execute_query(self, query: str, max_rows: int = 100) -> Dict[str, Any]:
-        """Execute a SELECT query and return results."""
-        if not self._connection:
-            self.connect()
-
-        try:
-            with self._connection.cursor() as cursor:
-                cursor.execute(query)
-                columns = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchmany(max_rows)
+        """Execute a SELECT query with retry logic."""
+        retries = 0
+        last_error = None
+        
+        while retries < self.MAX_RETRIES:
+            try:
+                self.ensure_connection()
                 
-                return {
-                    "columns": columns,
-                    "rows": [list(row) for row in rows],
-                    "row_count": len(rows),
-                    "has_more": cursor.fetchone() is not None
-                }
-        except Exception as e:
-            logger.error(f"Query execution failed: {str(e)}")
-            raise JdbcError(f"Query failed: {str(e)}")
+                with self._connection.cursor() as cursor:
+                    cursor.execute(query)
+                    columns = [desc[0] for desc in cursor.description]
+                    rows = cursor.fetchmany(max_rows)
+                    self._last_used = time.time()
+                    
+                    return {
+                        "columns": columns,
+                        "rows": [list(row) for row in rows],
+                        "row_count": len(rows),
+                        "has_more": cursor.fetchone() is not None
+                    }
+            except Exception as e:
+                last_error = e
+                retries += 1
+                
+                # Check if it's a connection error
+                if "connection" in str(e).lower() or "network" in str(e).lower():
+                    logger.warning(f"Connection error during query execution: {str(e)}")
+                    # Force reconnection on next attempt
+                    self._connection = None
+                    if retries < self.MAX_RETRIES:
+                        logger.info(f"Retrying query in {self.RETRY_DELAY} seconds...")
+                        time.sleep(self.RETRY_DELAY)
+                        continue
+                else:
+                    # If it's not a connection error, don't retry
+                    logger.error(f"Query execution failed: {str(e)}")
+                    raise JdbcError(f"Query failed: {str(e)}")
+        
+        logger.error(f"Query failed after {self.MAX_RETRIES} attempts. Last error: {str(last_error)}")
+        raise JdbcError(f"Query failed after {self.MAX_RETRIES} attempts: {str(last_error)}")
 
     def get_tables(self, schema: Optional[str] = None, include_system: bool = False) -> Dict[str, Any]:
-        """Get list of tables in the database."""
-        if not self._connection:
-            self.connect()
-
-        try:
-            cursor = self._connection.cursor()
-            # Use DatabaseMetaData through the connection directly
-            metadata = self._connection.jconn.getMetaData()
-            rs = metadata.getTables(None, schema, "%", ["TABLE"] if not include_system else None)
-            
-            tables = []
-            while rs.next():
-                tables.append({
-                    "table_name": rs.getString("TABLE_NAME"),
-                    "schema": rs.getString("TABLE_SCHEM"),
-                    "type": rs.getString("TABLE_TYPE"),
-                    "remarks": rs.getString("REMARKS")
-                })
-            
-            return {
-                "tables": tables,
-                "count": len(tables)
-            }
-        except Exception as e:
-            logger.error(f"Failed to get tables: {str(e)}")
-            raise JdbcError(f"Failed to get tables: {str(e)}")
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
+        """Get list of tables with retry logic."""
+        retries = 0
+        last_error = None
+        
+        while retries < self.MAX_RETRIES:
+            try:
+                self.ensure_connection()
+                cursor = self._connection.cursor()
+                
+                # Use DatabaseMetaData through the connection directly
+                metadata = self._connection.jconn.getMetaData()
+                rs = metadata.getTables(None, schema, "%", ["TABLE"] if not include_system else None)
+                
+                tables = []
+                while rs.next():
+                    tables.append({
+                        "table_name": rs.getString("TABLE_NAME"),
+                        "schema": rs.getString("TABLE_SCHEM"),
+                        "type": rs.getString("TABLE_TYPE"),
+                        "remarks": rs.getString("REMARKS")
+                    })
+                
+                self._last_used = time.time()
+                return {
+                    "tables": tables,
+                    "count": len(tables)
+                }
+            except Exception as e:
+                last_error = e
+                retries += 1
+                
+                if "connection" in str(e).lower() or "network" in str(e).lower():
+                    logger.warning(f"Connection error while getting tables: {str(e)}")
+                    self._connection = None
+                    if retries < self.MAX_RETRIES:
+                        logger.info(f"Retrying get_tables in {self.RETRY_DELAY} seconds...")
+                        time.sleep(self.RETRY_DELAY)
+                        continue
+                else:
+                    logger.error(f"Failed to get tables: {str(e)}")
+                    raise JdbcError(f"Failed to get tables: {str(e)}")
+            finally:
+                if 'cursor' in locals():
+                    cursor.close()
+        
+        logger.error(f"Failed to get tables after {self.MAX_RETRIES} attempts. Last error: {str(last_error)}")
+        raise JdbcError(f"Failed to get tables after {self.MAX_RETRIES} attempts: {str(last_error)}")
 
     def get_columns(self, table_name: str, schema: Optional[str] = None) -> Dict[str, Any]:
-        """Get column information for a table."""
-        if not self._connection:
-            self.connect()
-
-        try:
-            cursor = self._connection.cursor()
-            # Use DatabaseMetaData through the connection directly
-            metadata = self._connection.jconn.getMetaData()
-            rs = metadata.getColumns(None, schema, table_name, "%")
-            
-            columns = []
-            while rs.next():
-                columns.append({
-                    "name": rs.getString("COLUMN_NAME"),
-                    "type": rs.getString("TYPE_NAME"),
-                    "size": rs.getInt("COLUMN_SIZE"),
-                    "nullable": rs.getBoolean("NULLABLE"),
-                    "default": rs.getString("COLUMN_DEF"),
-                    "remarks": rs.getString("REMARKS")
-                })
-            
-            # Get primary key information
-            rs = metadata.getPrimaryKeys(None, schema, table_name)
-            pk_columns = []
-            while rs.next():
-                pk_columns.append(rs.getString("COLUMN_NAME"))
-            
-            # Get foreign key information
-            rs = metadata.getImportedKeys(None, schema, table_name)
-            foreign_keys = []
-            while rs.next():
-                foreign_keys.append({
-                    "fk_name": rs.getString("FK_NAME"),
-                    "fk_column": rs.getString("FKCOLUMN_NAME"),
-                    "pk_table": rs.getString("PKTABLE_NAME"),
-                    "pk_column": rs.getString("PKCOLUMN_NAME")
-                })
-            
-            return {
-                "table_name": table_name,
-                "schema": schema,
-                "columns": columns,
-                "primary_keys": pk_columns,
-                "foreign_keys": foreign_keys
-            }
-        except Exception as e:
-            logger.error(f"Failed to get columns for table {table_name}: {str(e)}")
-            raise JdbcError(f"Failed to get columns: {str(e)}")
-        finally:
-            if 'cursor' in locals():
-                cursor.close()
+        """Get column information with retry logic."""
+        retries = 0
+        last_error = None
+        
+        while retries < self.MAX_RETRIES:
+            try:
+                self.ensure_connection()
+                cursor = self._connection.cursor()
+                
+                # Use DatabaseMetaData through the connection directly
+                metadata = self._connection.jconn.getMetaData()
+                rs = metadata.getColumns(None, schema, table_name, "%")
+                
+                columns = []
+                while rs.next():
+                    columns.append({
+                        "name": rs.getString("COLUMN_NAME"),
+                        "type": rs.getString("TYPE_NAME"),
+                        "size": rs.getInt("COLUMN_SIZE"),
+                        "nullable": rs.getBoolean("NULLABLE"),
+                        "default": rs.getString("COLUMN_DEF"),
+                        "remarks": rs.getString("REMARKS")
+                    })
+                
+                # Get primary key information
+                rs = metadata.getPrimaryKeys(None, schema, table_name)
+                pk_columns = []
+                while rs.next():
+                    pk_columns.append(rs.getString("COLUMN_NAME"))
+                
+                # Get foreign key information
+                rs = metadata.getImportedKeys(None, schema, table_name)
+                foreign_keys = []
+                while rs.next():
+                    foreign_keys.append({
+                        "fk_name": rs.getString("FK_NAME"),
+                        "fk_column": rs.getString("FKCOLUMN_NAME"),
+                        "pk_table": rs.getString("PKTABLE_NAME"),
+                        "pk_column": rs.getString("PKCOLUMN_NAME")
+                    })
+                
+                self._last_used = time.time()
+                return {
+                    "table_name": table_name,
+                    "schema": schema,
+                    "columns": columns,
+                    "primary_keys": pk_columns,
+                    "foreign_keys": foreign_keys
+                }
+            except Exception as e:
+                last_error = e
+                retries += 1
+                
+                if "connection" in str(e).lower() or "network" in str(e).lower():
+                    logger.warning(f"Connection error while getting columns: {str(e)}")
+                    self._connection = None
+                    if retries < self.MAX_RETRIES:
+                        logger.info(f"Retrying get_columns in {self.RETRY_DELAY} seconds...")
+                        time.sleep(self.RETRY_DELAY)
+                        continue
+                else:
+                    logger.error(f"Failed to get columns: {str(e)}")
+                    raise JdbcError(f"Failed to get columns: {str(e)}")
+            finally:
+                if 'cursor' in locals():
+                    cursor.close()
+        
+        logger.error(f"Failed to get columns after {self.MAX_RETRIES} attempts. Last error: {str(last_error)}")
+        raise JdbcError(f"Failed to get columns after {self.MAX_RETRIES} attempts: {str(last_error)}")
 
 # MCP handlers
 async def execute_query(arguments: Dict[str, Any]) -> bytes:
