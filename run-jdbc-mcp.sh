@@ -4,6 +4,9 @@
 unset PYTHONHOME
 unset PYTHONPATH
 
+# Set JAVA_HOME for JPype/JayDeBeApi
+export JAVA_HOME=/home/klaus/apps/jdk-17.0.9
+
 # Create logs directory
 mkdir -p "$(dirname "$0")/logs"
 
